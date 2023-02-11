@@ -3,7 +3,7 @@
 	Tobby Rw-ini confused
 	铁锈ini代码混淆
 	修改自ini-parse
-	upd 22-11-21
+	upd 23-2-12
 	禁止商用
 */
 
@@ -33,11 +33,24 @@
 	1.5 beta 22-12-19
 	修复@memory和@global无法判断为主要键
 	略微增加效率
+	1.6 beta 23-2-12
+	在多处影响效率的地方换用STL,较大的增加了效率(单文件(10~50)+(1~10)ms)
+	更换中文
 */
 
-#include <bits/stdc++.h>
+#include<bits/stdc++.h>
+
+#include <iostream>
+#include <cstdlib>
+#include <cmath>
+#include <string>
+
+#include <sstream>
+#include <random>
 #include <windows.h>
 #include <map>
+#include <queue>
+#include <stack>
 #include <conio.h> //_kbhit(),getch()
 #include <thread> //多线程 
 #include <chrono>
@@ -45,7 +58,7 @@
 
 using namespace std;
 
-const string version = "v1.5 beta";
+const string version = "v1.6 beta";
 
 ifstream fin;
 ofstream fout;
@@ -58,6 +71,9 @@ bool split_file;
 
 const int MAXN_INT = 1ll*2<<31-1;
 const int max_split_file = 5;
+
+const string debug_level = "error";
+const bool debug_open = false;
 
 uniform_int_distribution<int> big_rand(0,MAXN_INT);
 default_random_engine defult_rand;
@@ -153,10 +169,12 @@ void add_filename_extension_list(){//文件扩展名列表(忽略大小写)
 	//待补充
 }
 
-string msth[2001];
-int msth_p=0;
+// string msth[2001];
+// int msth_p=0;
+set<string> msth;
 
 void add_msth_list(){
+	/*
 	msth[++msth_p]="name";
 	//msth[++msth_p]="maxHp";
 	msth[++msth_p]="price";
@@ -168,6 +186,16 @@ void add_msth_list(){
 	msth[++msth_p]="x";
 	msth[++msth_p]="y";
 	msth[++msth_p]="@memory";
+	*/
+	msth.insert("name");
+	msth.insert("price");
+	msth.insert("radius");
+	msth.insert("mass");
+	msth.insert("image");
+	msth.insert("x");
+	msth.insert("y");
+	msth.insert("@memory");
+	msth.insert("@global");
 }
 
 bool all_include(string a,string b){
@@ -334,6 +362,12 @@ struct Key{
 	}
 };
 
+bool operator < (const Key& a,const Key& b)
+{
+    if(a.rnd_sort<b.rnd_sort) return true;
+    else return false;
+}
+
 struct Section{
 	string name;//节名称
 	int key_cnt=0;//键数量
@@ -344,6 +378,12 @@ struct Section{
 	int dont_load_f;
 };
 Section secs[801];
+
+bool operator < (const Section& a,const Section& b)
+{
+    if(a.rnd_sort<b.rnd_sort) return true;
+    else return false;
+}
 
 bool section_cmp(Section a,Section b){
 	return a.rnd_sort < b.rnd_sort;
@@ -371,7 +411,7 @@ void code_sort(int sep,int kep){
 	
 	if(secs[sep].keys[kep].type!="normal"){
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-		printf("[Error] Code type error when sorting: %s\n",code_name.c_str());
+		if(debug_level=="error") printf("[Error] Code type error when sorting: %s\n",code_name.c_str());
 		Reset_Color();
 		return;
 	}
@@ -445,6 +485,14 @@ bool is_empty_str(string s){
 int core_p=-1;
 bool dtl_f;
 
+void add_section(string sec_n){
+	section_cnt++;
+	secs[section_cnt].name=sec_n;
+	secs[section_cnt].rnd_sort=big_rand(time_rand)+1;
+}
+
+//void add_key(string key,string value,string key_type,int rnd_sort,int rnd_file){}
+
 void parse(string s){
 //	cout<<"[DEBUG] s: ["<<s<<"]\n";
 	line_cnt++;
@@ -460,7 +508,7 @@ void parse(string s){
 			if(secs[i].name==sec_name){
 				//节已经存在
 				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED|FOREGROUND_GREEN);
-				printf("[Waring] Reapet section: %s\n",sec_name.c_str());
+				if(debug_level=="warn"||debug_level=="info") printf("[Waring] Reapet section: %s\n",sec_name.c_str());
 				Reset_Color();
 				secp=i;
 				rpt=true;
@@ -468,15 +516,13 @@ void parse(string s){
 			}
 		}
 		if(!rpt){
-			printf("[Log] Found new section: %s\n",sec_name.c_str());
-			section_cnt++;
-			secs[section_cnt].name=sec_name;
-			secs[section_cnt].rnd_sort=big_rand(time_rand)+1;
+			if(debug_level=="info") printf("[Log] Found new section: %s\n",sec_name.c_str());
+			add_section(sec_name);
 			secp=section_cnt;
 			if(sec_name.find("core")!=string::npos){
 				core_p=section_cnt;
 			}
-			printf("[Log] Section Get Random id: %d\n",secs[section_cnt].rnd_sort);
+			if(debug_level=="info") printf("[Log] Section Get Random id: %d\n",secs[section_cnt].rnd_sort);
 		}
 		section_now_name=sec_name;
 	}else{
@@ -526,7 +572,7 @@ void parse(string s){
 			}
 		}
 		if(dcnt==2&&fs_c==-1&&in_cp){//多行赋值结尾
-			printf("[Log] Multi-line assignment ended\n");
+			if(debug_level=="info") printf("[Log] Multi-line assignment ended\n");
 			in_cp=false;
 			secs[secp].key_cnt++;
 			secs[secp].keys[secs[secp].key_cnt]=Key("null",s);
@@ -534,7 +580,7 @@ void parse(string s){
 			secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 			secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
 			secs[secp].keys[secs[secp].key_cnt].type="MLA";
-			printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
+			if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 			goto pdend;
 		}
 		if(in_cp&&fs_c==-1){//多行赋值中间
@@ -544,29 +590,29 @@ void parse(string s){
 			secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 			secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
 			secs[secp].keys[secs[secp].key_cnt].type="MLA";
-			printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
+			if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 			goto pdend;
 		}
 		if(!is_comment){
 			if(fs_c==-1){
 				if(emp_l){
-					printf("[Log] Find empty line: Line %d\n",line_cnt);
+					if(debug_level=="info") printf("[Log] Find empty line: Line %d\n",line_cnt);
 					secs[secp].key_cnt++;
 					secs[secp].keys[secs[secp].key_cnt]=Key("null","empty_line");
 					secs[secp].keys[secs[secp].key_cnt].rnd_sort=big_rand(time_rand)+1;
 					secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 					secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
 					secs[secp].keys[secs[secp].key_cnt].type="empty";
-					printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
+					if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 					empty_key_cnt++;
 				}else{
 					if(ignore_error){
 						SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED|FOREGROUND_GREEN);
-						printf("[Warning](ignored) No colon found in: %s\n",s.c_str());
+						if(debug_level=="info"||debug_level=="warn") printf("[Warning](ignored) No colon found in: %s\n",s.c_str());
 						Reset_Color();
 						if(is_empty_str(s)){
 							SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-							printf("[Error] unignored: empty line\n");
+							if(debug_level=="info"||debug_level=="warn"||debug_level=="error") printf("[Error] unignored: empty line\n");
 							Reset_Color();
 						}
 						/*---复制的下面---*/
@@ -576,17 +622,20 @@ void parse(string s){
 						secs[secp].key_cnt++;
 						secs[secp].keys[secs[secp].key_cnt]=Key(key_name,key_value);//装入结构体方便调用
 						bool mh=false;
-						for(int i=1;i<=msth_p;i++){
+						if(msth.count(rem_sp(key_name))==1){
+							mh=true;
+						}
+						/*for(int i=1;i<=msth_p;i++){
 							if(all_include(key_name,msth[i])){
-								printf("[Debug] msth[%d]:%s key_name:%s \n",i,msth[i].c_str(),key_name.c_str());
+								if(debug_level=="info") printf("[Debug] msth[%d]:%s key_name:%s \n",i,msth[i].c_str(),key_name.c_str());
 								mh=true;
 								break;
 							}
-						}
+						}*/
 						secs[secp].keys[secs[secp].key_cnt].rnd_sort=big_rand(time_rand)+1;
 						if(mh){
 							secs[secp].keys[secs[secp].key_cnt].rnd_file=1;
-							printf("[Debug] New main key found %s .\n",secs[secp].keys[secs[secp].key_cnt].name.c_str());
+							if(debug_level=="info"&&debug_open) printf("[Debug] New main key found %s .\n",secs[secp].keys[secs[secp].key_cnt].name.c_str());
 							secs[secp].keys[secs[secp].key_cnt].main_k=true;
 						}else{
 							secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
@@ -605,12 +654,12 @@ void parse(string s){
 							dtl_f=true;
 						}
 						code_sort(secp,secs[secp].key_cnt);
-						cout<<" type:"<<secs[secp].keys[secs[secp].key_cnt].data_type<<" \n";
-						printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
+						if(debug_level=="info") cout<<" type:"<<secs[secp].keys[secs[secp].key_cnt].data_type<<" \n";
+						if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 						/*------*/
 					}else{
 						SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-						printf("[Error] No colon found in: %s\n",s.c_str());
+						if(debug_level=="info"||debug_level=="warn"||debug_level=="error") printf("[Error] No colon found in: %s\n",s.c_str());
 						Reset_Color();
 					}
 				}
@@ -619,7 +668,7 @@ void parse(string s){
 				for(int i=0;i<=secs[secp].key_cnt;i++){
 					if(secs[secp].keys[i].name==key_name){
 						SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED|FOREGROUND_GREEN);
-						printf("[Waring] Reapet Key: %s\n",key_name.c_str());
+						if(debug_level=="info"||debug_level=="warn") printf("[Waring] Reapet Key: %s\n",key_name.c_str());
 						Reset_Color();
 						secs[secp].keys[i].value=key_value;
 						cfj=true;
@@ -636,28 +685,33 @@ void parse(string s){
 							secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 							secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
 							secs[secp].keys[secs[secp].key_cnt].type="normal";
-							printf("[Log] Find Multi-line assignment\n");
-							printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
+							if(debug_level=="info") printf("[Log] Find Multi-line assignment\n");
+							if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 							
 						}else{
 							SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-							printf("[Error] Already in Multi-line assignment\n");
+							if(debug_level=="info"||debug_level=="warn"||debug_level=="error") printf("[Error] Already in Multi-line assignment\n");
 							Reset_Color();
 							
 						}
 					}else{
 						key_name=rem_sp(key_name);
 						key_value=rem_sp(key_value);
-						cout<<"[Log] Found Key - name: "<<key_name<<" value: "<<key_value;//<<"\n"
+						if(debug_level=="info") cout<<"[Log] Found Key - name: "<<key_name<<" value: "<<key_value;//<<"\n"
 						secs[secp].key_cnt++;
 						secs[secp].keys[secs[secp].key_cnt]=Key(key_name,key_value);//装入结构体方便调用
 						bool mh=false;
+						if(msth.count(rem_sp(key_name))==1){
+							mh=true;
+						}
+						/*
 						for(int i=1;i<=msth_p;i++){
 							if(all_include(key_name,msth[i])){
 								mh=true;
 								break;
 							}
 						}
+						*/
 						secs[secp].keys[secs[secp].key_cnt].rnd_sort=big_rand(time_rand)+1;
 						if(mh){
 							secs[secp].keys[secs[secp].key_cnt].rnd_file=1;
@@ -677,13 +731,13 @@ void parse(string s){
 							dtl_f=true;
 						}
 						code_sort(secp,secs[secp].key_cnt);
-						cout<<" type:"<<secs[secp].keys[secs[secp].key_cnt].data_type<<" \n";
-						printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
+						if(debug_level=="info") cout<<" type:"<<secs[secp].keys[secs[secp].key_cnt].data_type<<" \n";
+						if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 					}
 				}
 			}
 		}else{
-			printf("[Log] Find Comment line: %s\n",s.c_str());
+			if(debug_level=="info") printf("[Log] Find Comment line: %s\n",s.c_str());
 			comment_key_cnt++;
 			secs[secp].key_cnt++;
 			secs[secp].keys[secs[secp].key_cnt]=Key("#",s.substr(cmf+1,s.size()));
@@ -696,7 +750,7 @@ void parse(string s){
 	}
 	if(core_p==-1){
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-		printf("[Error] No Core Section Found.Setting split_file is close.\n");
+		if(debug_level=="info"||debug_level=="warn"||debug_level=="error") printf("[Error] No Core Section Found.Setting split_file is close.\n");
 		split_file=false;
 		Reset_Color();
 	}
@@ -717,15 +771,17 @@ int enter_after_section;
 void sort_input(int file_number,string fld,string fln){
 	if(file_number==1) {
 		fout.open(fld+"\\"+fln);
-		printf("[Log] Open File: %s\\%s\n",fld.c_str(),fln.c_str());
+		if(debug_level=="info") printf("[Log] Open File: %s\\%s\n",fld.c_str(),fln.c_str());
 	}else{
 		fout.open(fld+"\\"+"rnd_cp_"+int_to_str(file_number)+"_"+fln);
-		printf("[Log] Open File: %s\\rnd_cp_%d_%s\n",fld.c_str(),file_number,fln.c_str());
+		if(debug_level=="info") printf("[Log] Open File: %s\\rnd_cp_%d_%s\n",fld.c_str(),file_number,fln.c_str());
 	}
 	 
 	
 //	cout<<"rnd:"<<randomly_add_comments<<": ing"
-	//sort(secs+1,secs+secp+1,section_cmp);//随机排序节(STL对结构体失效得手写)
+	sort(secs+1,secs+secp+1);//随机排序节
+	
+	/*
 	for(int i=1;i<=secp;i++){
 			for(int j=i+1;j<=secp-1;j++){
 				if(secs[i].rnd_sort>secs[j].rnd_sort){
@@ -733,14 +789,19 @@ void sort_input(int file_number,string fld,string fln){
 				}//反正数据量不大 懒得写快排了 写个选择凑数
 			}
 		}
-	printf("[Log] Random Sorted Sections\n");
+	*/
+
+	if(debug_level=="info") printf("[Log] Random Sorted Sections\n");
 	fout<<"# This file is automatically confused by Tobby RW-INI Confused\n";
 	for(int k=1;k<=section_cnt;k++){
 		//输出节名称
 		string n_sec=secs[k].name;
 		fout<<"["<<n_sec<<"]"<<endl;
 		//输出键
-		//sort(secs[k].keys+1,secs[k].keys+secs[k].key_cnt+1,key_cnt);//随机排序键
+		
+		sort(secs[k].keys+1,secs[k].keys+secs[k].key_cnt+1);//随机排序键
+		
+		/*
 		for(int i=1;i<=secs[k].key_cnt;i++){
 			for(int j=i+1;j<=secs[k].key_cnt-1;j++){
 				if(secs[k].keys[i].rnd_sort>secs[k].keys[j].rnd_sort){
@@ -748,9 +809,9 @@ void sort_input(int file_number,string fld,string fln){
 				}//反正数据量不大 懒得写快排了 写个冒泡凑数
 			}
 		}
+		*/
 		
-		
-		printf("[Log] Random Sorted Section %s 's Keys\n",n_sec.c_str());
+		if(debug_level=="info") printf("[Log] Random Sorted Section %s 's Keys\n",n_sec.c_str());
 		bool dtn_pr=false;
 		for(int j=1;j<=secs[k].key_cnt;j++){
 			if(dtl_f&&!dtn_pr&&secs[k].name.find("core")!=string::npos&&file_number==1){
@@ -773,6 +834,18 @@ void sort_input(int file_number,string fld,string fln){
 			}
 			if(split_file){
 				bool mh=false;
+				string sp_tmp=rem_sp(secs[k].keys[j].name);
+				if(msth.count(sp_tmp)>=1){
+					mh=true;
+				}else{
+					if(sp_tmp.substr(0,6)=="@memory"||all_include(secs[k].keys[j].name,"@memory")){
+						mh=true;
+					}
+					if(sp_tmp.substr(0,6)=="@global"||all_include(secs[k].keys[j].name,"@global")){
+						mh=true;
+					}
+				}
+				/*
 				for(int i=1;i<=msth_p;i++){
 //					if(all_include(secs[k].keys[j].name,msth[i])) printf("[D-Debug]rem_sp: {%s} -> {%s} f:%s\n",secs[k].keys[j].name.c_str(),msth[i].c_str(),(rem_sp(secs[k].keys[j].name) == msth[i])?"F_TRUE":"F_FALSE");
 					if(rem_sp(secs[k].keys[j].name) == msth[i]){
@@ -793,13 +866,18 @@ void sort_input(int file_number,string fld,string fln){
 						break;
 					}
 				}
+				*/
 				if(mh){//secs[k].keys[j].main_k==true
 //					printf("[Debug] Main Key %s\n",secs[k].keys[j].name.c_str());
-				}else{
+					// 不输出
+				}
+				/*
+				else{
 					if(secs[k].keys[j].rnd_file!=file_number){
 						if(!(core_p==k&&secs[k].copyfrom_f!=-1)) continue;
 					}
 				}
+				*/
 			}
 			
 			if(split_file){
@@ -824,7 +902,7 @@ void sort_input(int file_number,string fld,string fln){
 			}else{
 				if(ignore_error){
 					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED|FOREGROUND_GREEN);
-					printf("[Warning](ignored) Unknow key type:%s (bug,unignored)\n",secs[k].keys[j].type.c_str());
+					if(debug_level=="info"||debug_level=="warn") printf("[Warning](ignored) Unknow key type:%s (bug,unignored)\n",secs[k].keys[j].type.c_str());
 					Reset_Color();
 					/*
 					fout<<secs[k].keys[j].name;
@@ -833,7 +911,7 @@ void sort_input(int file_number,string fld,string fln){
 					*/
 				}else{
 					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-					printf("[Error] Unknow key type: %s\n",secs[k].keys[j].type.c_str());
+					if(debug_level=="info"||debug_level=="warn"||debug_level=="error") printf("[Error] Unknow key type: %s\n",secs[k].keys[j].type.c_str());
 					//version question (char*<-string)
 					Reset_Color();
 				}				
@@ -863,6 +941,7 @@ void in_it(){
 	add_filename_extension_list();//补充扩展名列表
 	add_msth_list();
 	printf("Tobby rw ini confused %s\n",version.c_str());
+	printf("USE UTF-8\n");
 	//printf("Why in English, you ask? Because the Dev code used in writing is ANSI code, the Chinese part is garbled, so now all changed to English.\n");
 	//printf("Input File:test.ini  Output File:result.ini  Setting File:set.txt\n");
 	if(file_alive("set.txt")){
@@ -879,30 +958,30 @@ void in_it(){
 		string ct1,ct2;
 		ctr>>ct1;
 		if(ct1=="1"){
-			printf("[Log] Read Setting : keep_empty_line = true\n");
+			printf("[Log] 读取设置 : 保留空行 keep_empty_line = true\n");
 			keep_empty_line=true;
 		}else{
 			keep_empty_line=false;
 			if(ct1!="0"){
 				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-				printf("[Error] setting file wrong : keep_empty_line\n");
+				printf("[Error] 读取设置错误 : 保留空行 keep_empty_line\n");
 				Reset_Color();
 			}else{
-				printf("[Log] Read Setting : keep_empty_line = false\n");
+				printf("[Log] 读取设置 : 保留空行 keep_empty_line = false\n");
 			}
 		}
 		ctr>>ct2;
 		if(ct2=="1"){
-			printf("[Log] Read Setting : keep_comments = true\n");
+			printf("[Log] 读取设置 : 保留注释 keep_comments = true\n");
 			keep_comments=true;
 		}else{
 			keep_comments=false;
 			if(ct2!="0"){
 				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-				printf("[Error] setting file wrong : keep_comments\n");
+				printf("[Error] 读取设置错误 : 保留注释 keep_comments\n");
 				Reset_Color();
 			}else{
-				printf("[Log] Read Setting : keep_comments = false\n");
+				printf("[Log] 读取设置 : 保留注释 keep_comments = false\n");
 			}
 		}
 		string ct3,ct4;
@@ -911,11 +990,11 @@ void in_it(){
 		int gt1_i=get_number(gt1,ct3);
 		if(gt1){
 			space_before_colon=gt1_i;
-			printf("[Log] Read Setting : space_before_colon = %d\n",gt1_i);
+			printf("[Log] 读取设置 : 冒号前空格数量 space_before_colon = %d\n",gt1_i);
 		}else{
 			space_before_colon=0;
 			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-			printf("[Error] setting file wrong : space_before_colon\n");
+			printf("[Error] 读取设置错误 : 冒号前空格数量 space_before_colon\n");
 			Reset_Color();
 		}
 		ctr>>ct4;
@@ -923,11 +1002,11 @@ void in_it(){
 		int gt2_i=get_number(gt2,ct4);
 		if(gt2){
 			space_after_colon=gt2_i;
-			printf("[Log] Read Setting : space_after_colon = %d\n",gt2_i);
+			printf("[Log] 读取设置 : 冒号后空格数量 space_after_colon = %d\n",gt2_i);
 		}else{
 			space_after_colon=1;
 			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-			printf("[Error] setting file wrong : space_after_colon\n");
+			printf("[Error] 读取设置错误 : 冒号后空格数量 space_after_colon\n");
 			Reset_Color();
 		}
 		string ct5;
@@ -936,11 +1015,11 @@ void in_it(){
 		int gt3_i=get_number(gt3,ct5);
 		if(gt3){
 			enter_after_section=gt3_i;
-			printf("[Log] Read Setting : enter_after_section = %d\n",gt3_i);
+			printf("[Log] 读取设置 : 节后换行数量 enter_after_section = %d\n",gt3_i);
 		}else{
 			enter_after_section=0;
 			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-			printf("[Error] setting file wrong : enter_after_section\n");
+			printf("[Error] 读取设置错误 : 节后换行数量 enter_after_section\n");
 			Reset_Color();
 		}
 		string ct6;
@@ -948,48 +1027,48 @@ void in_it(){
 		//printf("[DEBUG] ct6:%s\n",ct6.c_str());
 //		cout<<"ct6:"<<ct6<<":\n"; 
 		if(ct6=="1"){
-			printf("[Log] Read Setting : randomly_add_comments = true\n");
+			printf("[Log] 读取设置 : 增加随机注释 randomly_add_comments = true\n");
 			randomly_add_comments=true;
 		}else{
 			randomly_add_comments=false;
 			if(ct6!="0"){
 				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-				printf("[Error] setting file wrong : randomly_add_comments\n");
+				printf("[Error] 读取设置错误 : 增加随机注释 randomly_add_comments\n");
 				Reset_Color();
 			}else{
-				printf("[Log] Read Setting : randomly_add_comments = false\n");
+				printf("[Log] 读取设置 : 增加随机注释 randomly_add_comments = false\n");
 			}
 		}
 		string ct7;
 		ctr>>ct7;
 //		cout<<"ct7:"<<ct7<<":\n"; 
 		if(ct7=="1"){
-			printf("[Log] Read Setting : ignore_error = true\n");
+			printf("[Log] 读取设置 : 忽略一些报错 ignore_error = true\n");
 			ignore_error=true;
 		}else{
 			ignore_error=false;
 			if(ct7!="0"){
 				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-				printf("[Error] setting file wrong : ignore_error\n");
+				printf("[Error] 读取设置错误 : 忽略一些报错 ignore_error\n");
 				Reset_Color();
 			}else{
-				printf("[Log] Read Setting : ignore_error = false\n");
+				printf("[Log] 读取设置 : 忽略一些报错 ignore_error = false\n");
 			}
 		}
 		string ct8;
 		ctr>>ct8;
 //		cout<<"ct7:"<<ct7<<":\n"; 
 		if(ct8=="1"){
-			printf("[Log] Read Setting : split_file = true\n");
+			printf("[Log] 读取设置 : 分割文件 split_file = true\n");
 			split_file=true;
 		}else{
 			split_file=false;
 			if(ct8!="0"){
 				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
-				printf("[Error] setting file wrong : split_file\n");
+				printf("[Error] 读取设置错误 : 分割文件 split_file\n");
 				Reset_Color();
 			}else{
-				printf("[Log] Read Setting : split_file = false\n");
+				printf("[Log] 读取设置 : 分割文件 split_file = false\n");
 			}
 		}
 		ctr.close();
@@ -1002,13 +1081,14 @@ void in_it(){
 		ctw.open("set.txt");
 		ctw<<"0\n1\n0\n1\n1\n0\n1\n0\n";
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED|FOREGROUND_GREEN);
-		printf("[Waring] Missing Setting file: set.txt , Default Settings are being used.\n");
+		printf("[Waring] 缺少设置文件: set.txt , 使用默认设置.\n");
 		Reset_Color();
 		ctw.close();
 	}
 }
 
 void do_parsing(string file_path,string fld,string fln){
+	clock_t pr_start=clock();
 	secp=1;
 	line_cnt=0;
 	section_cnt=0;
@@ -1017,14 +1097,17 @@ void do_parsing(string file_path,string fld,string fln){
 	comment_key_cnt=0;
 	core_p=0; 
 	dtl_f=false;
-	for(int i=0;i<=800;i++){
+	//memset(&secs,0,sizeof(struct Section));
+	for(int i=0;i<=200;i++){
 		secs[i].key_cnt=0;
 		secs[i].name="";
 		secs[i].rnd_sort=0;
 		secs[i].rnd_file=-1;
 		secs[i].copyfrom_f=-1;
 		secs[i].dont_load_f=-1;
-		for(int j=0;j<=5000;j++){
+		//memset(&secs[i].keys,0,sizeof(struct Key));
+		//memset有bug
+		for(int j=0;j<=2000;j++){
 			secs[i].keys[j].name="";
 			secs[i].keys[j].type="";
 			secs[i].keys[j].data_type="";
@@ -1035,6 +1118,7 @@ void do_parsing(string file_path,string fld,string fln){
 		}
 	}
 	//1.1没重置这里
+	//理论上不重置也是可以的但保险重置一下
 //	printf("[Log] Open File: %s %s\n",fld.c_str(),fln.c_str());
 	
 //	string cmd_r_t="copy "+file_path+" "+file_path+".bak";
@@ -1051,11 +1135,12 @@ void do_parsing(string file_path,string fld,string fln){
 //	system(cmd_r1);
 	//fin.open(fln);
 	fin.open(file_path);
+	clock_t pr_end=clock();
+	clock_t start=clock();
 	//fout.open(fld+fln);
 	//fout.open(fld+"c_"+fln);
 	//printf("fin:%s%s fout:%sc_%s \n",fld.c_str(),fln.c_str(),fld.c_str(),fln.c_str());
 	//printf("fin:%s fout:%s\\%s \n",file_path.c_str(),fld.c_str(),fln.c_str());
-	clock_t start=clock();
 	char now[800001];
 	while(fin.getline(now,20001)){
 //		printf("[DEBUG] Get %s\n",now);
@@ -1065,13 +1150,14 @@ void do_parsing(string file_path,string fld,string fln){
 	clock_t end=clock();
 	bool gt_f;
 	double endtime=(double)(end-start)/CLOCKS_PER_SEC;
-	printf("%s 's confusing is complete.\nTakes %.2lfms.\n",file_path.c_str(),endtime*1000);
-	printf("Statistics:\nSections:%d\nKeys:%d (Empty Key:%d Comment Key:%d)\n",section_cnt,key_cnt,empty_key_cnt,comment_key_cnt);
+	double pr_endtime=(double)(pr_end-pr_start)/CLOCKS_PER_SEC;
+	printf("文件 %s 混淆完成\n花费 %.2lfms(预处理 %.2lf ms + 混淆 %.2lf ms).\n",file_path.c_str(),(endtime*1000+pr_endtime*1000),pr_endtime*1000,endtime*1000);
+	printf("统计:\n节:%d\n键:%d (空键:%d 注释键:%d)\n",section_cnt,key_cnt,empty_key_cnt,comment_key_cnt);
 //  	fout.open(fld+"\\"+fln);
 	if(!split_file){
 		sort_input(1,fld,fln);
 	}else{
-		printf("[Debug] core_p = %d ,copyfrom_f = %d,copyFrom = %s\n",core_p,secs[core_p].copyfrom_f,secs[core_p].keys[secs[core_p].copyfrom_f].value.c_str());
+		if(debug_open) printf("[Debug] core_p = %d ,copyfrom_f = %d,copyFrom = %s\n",core_p,secs[core_p].copyfrom_f,secs[core_p].keys[secs[core_p].copyfrom_f].value.c_str());
 		for(int i=2;i<=max_split_file;i++){
 			if(secs[core_p].keys[secs[core_p].copyfrom_f].value=="null"){
 				secs[core_p].keys[secs[core_p].copyfrom_f].value="rnd_cp_"+int_to_str(i)+"_"+fln;
@@ -1080,7 +1166,7 @@ void do_parsing(string file_path,string fld,string fln){
 			}
 			secs[core_p].keys[secs[core_p].copyfrom_f].rnd_file=1;
 		}
-		printf("[Debug] copyFrom -> %s \n",secs[core_p].keys[secs[core_p].copyfrom_f].value.c_str());
+		if(debug_open) printf("[Debug] copyFrom -> %s \n",secs[core_p].keys[secs[core_p].copyfrom_f].value.c_str());
 		for(int i=1;i<=max_split_file;i++){
 			sort_input(i,fld,fln);
 		}
@@ -1104,7 +1190,7 @@ int main() {
 //		cout<<"stmp-"<<stmp<<"-"<<endl;
 //	}
 	
-	printf("Input File Path(eg. D:\\mod\\test\\ ,wrong path may hurt your system,preferably no spaces):");
+	printf("请输入mod根路径(eg. D:\\rwtest\\test\\ini ,错误路径可能导致其他文件损坏,不能有空格):");
 	string pth;
 //	pth="D:\\rwtest\\test\\ini";//D:\\桌面\\rwini-confused\\test
 	getline(cin,pth);
@@ -1126,7 +1212,7 @@ int main() {
 	
 	//printf("[Debug] 114514:%d 114.154:%.3lf \n",get_number(gt_f,"114514"),get_float(gt_f,"114.514"));
 	
-	printf("By Tobby.\n");
+	printf("混淆完成\nBy Tobby.\n");
 	
 	system("PAUSE");
 	return 0;
