@@ -58,7 +58,7 @@
 
 using namespace std;
 
-const string version = "v1.6 beta";
+const string version = "v1.6b beta";
 
 ifstream fin;
 ofstream fout;
@@ -107,10 +107,10 @@ void File_Search(queue<string> &qu){
 			{
 			
 				//fout << FileInfo.name << ' '<<std::endl;
-				// << "DEBUG:File Find" << FileInfo.name << ' '<<std::endl;
+				//cout << "DEBUG:File Find" << FileInfo.name << ' '<<std::endl;
 				string path=qu.front()+"\\"+FileInfo.name;
 				string fn=FileInfo.name;
-				if(fn.find(".ini")!=string::npos&&fn.find(".bak")==string::npos&&fn.find("c_")==string::npos){//
+				if(fn.find(".ini")!=string::npos&&fn.find(".bak")==string::npos&&(fn.find("rnd_cp_")==string::npos||fn.size()<6)){//
 					do_parsing(path,qu.front(),fn);
 				}
 				if(FileInfo.attrib==_A_SUBDIR)//判断是否为文件夹
@@ -130,7 +130,7 @@ void File_Search(queue<string> &qu){
 					//cout << "DEBUG:File Find" << FileInfo.name << ' '<<std::endl;
 					//cout<<"find "<<path<<endl;
 				string fn=FileInfo.name;
-				if(fn.find(".ini")!=string::npos&&fn.find(".bak")==string::npos){
+				if(fn.find(".ini")!=string::npos&&fn.find(".bak")==string::npos&&(fn.find("rnd_cp_")==string::npos||fn.size()<6)){
 					do_parsing(path,qu.front(),fn);
 				}
 				if(FileInfo.attrib==_A_SUBDIR){
@@ -779,8 +779,18 @@ void sort_input(int file_number,string fld,string fln){
 	 
 	
 //	cout<<"rnd:"<<randomly_add_comments<<": ing"
+	/*printf("[debug]section: ");
+	for(int i=1;i<=secp;i++){
+		printf("%d ",secs[i].rnd_sort);
+	}
+	printf("\n");*/
 	sort(secs+1,secs+secp+1);//随机排序节
-	
+	/*printf("[debug]sorted_section: ");
+	for(int i=1;i<=secp;i++){
+		printf("%d ",secs[i].rnd_sort);
+	}
+	printf("\n");*/
+
 	/*
 	for(int i=1;i<=secp;i++){
 			for(int j=i+1;j<=secp-1;j++){
@@ -871,13 +881,13 @@ void sort_input(int file_number,string fld,string fln){
 //					printf("[Debug] Main Key %s\n",secs[k].keys[j].name.c_str());
 					// 不输出
 				}
-				/*
+				
 				else{
 					if(secs[k].keys[j].rnd_file!=file_number){
 						if(!(core_p==k&&secs[k].copyfrom_f!=-1)) continue;
 					}
 				}
-				*/
+				
 			}
 			
 			if(split_file){
