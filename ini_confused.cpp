@@ -58,7 +58,7 @@
 
 using namespace std;
 
-const string version = "v1.6b beta";
+const string version = "v1.6c beta";
 
 ifstream fin;
 ofstream fout;
@@ -72,7 +72,7 @@ bool split_file;
 const int MAXN_INT = 1ll*2<<31-1;
 const int max_split_file = 5;
 
-const string debug_level = "error";
+const string debug_level = "warning";
 const bool debug_open = false;
 
 uniform_int_distribution<int> big_rand(0,MAXN_INT);
@@ -537,7 +537,7 @@ void parse(string s){
 		bool is_comment=false;
 		int dcnt=0;
 		for(int i=0;i<s.size();i++){
-  			//printf("[DEBUG] i:%d fs_c:%d fs:%d emp_l:%d s[i]:%c name:%s value:%s\n",i,fs_c,fs,emp_l,s[i],key_name,key_value);
+  			//printf("[DEBUG] i:%d fs_c:%d fs:%s emp_l:%s s[i]:%c name:%s value:%s\n",i,fs_c,fs?"true":"false",emp_l?"true":"false",s[i],key_name.c_str(),key_value.c_str());
 			if(s[i]=='\"'){
 				if(s[i-1]==s[i]){
 					dcnt++;
@@ -574,22 +574,24 @@ void parse(string s){
 		if(dcnt==2&&fs_c==-1&&in_cp){//多行赋值结尾
 			if(debug_level=="info") printf("[Log] Multi-line assignment ended\n");
 			in_cp=false;
-			secs[secp].key_cnt++;
+			/*secs[secp].key_cnt++;
 			secs[secp].keys[secs[secp].key_cnt]=Key("null",s);
 			secs[secp].keys[secs[secp].key_cnt].rnd_sort=big_rand(time_rand)+1;
 			secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 			secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
-			secs[secp].keys[secs[secp].key_cnt].type="MLA";
+			secs[secp].keys[secs[secp].key_cnt].type="MLA";*/
 			if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 			goto pdend;
 		}
 		if(in_cp&&fs_c==-1){//多行赋值中间
-			secs[secp].key_cnt++;
+			/*secs[secp].key_cnt++;
 			secs[secp].keys[secs[secp].key_cnt]=Key("null",s);
 			secs[secp].keys[secs[secp].key_cnt].rnd_sort=big_rand(time_rand)+1;
 			secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 			secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
-			secs[secp].keys[secs[secp].key_cnt].type="MLA";
+			secs[secp].keys[secs[secp].key_cnt].type="MLA";*/
+			secs[secp].keys[secs[secp].key_cnt].value+=s;
+			if(debug_level=="info") printf("[Log] MLA added:%s\n",s.c_str());
 			if(debug_level=="info") printf("[Log] Key Get Random id: %d\n",secs[secp].keys[secs[secp].key_cnt].rnd_sort);
 			goto pdend;
 		}
@@ -618,7 +620,7 @@ void parse(string s){
 						/*---复制的下面---*/
 						key_name=rem_sp(key_name);
 						key_value=rem_sp(key_value);
-						cout<<"[Log] Found Key - name: "<<key_name<<" value: "<<key_value;//<<"\n"
+						if(debug_level=="info") cout<<"[Log] Found Key - name: "<<key_name<<" value: "<<key_value;//<<"\n"
 						secs[secp].key_cnt++;
 						secs[secp].keys[secs[secp].key_cnt]=Key(key_name,key_value);//装入结构体方便调用
 						bool mh=false;
@@ -676,11 +678,11 @@ void parse(string s){
 					}
 				}
 				if(!cfj){
-					if(key_value=="\"\"\""){//"\'\'\'"
+					if(rem_sp(key_value)=="\"\"\""){//"\'\'\'"
 						if(in_cp==false){
 							in_cp=true;//多行赋值
 							secs[secp].key_cnt++;
-							secs[secp].keys[secs[secp].key_cnt]=Key(key_name,key_value);
+							secs[secp].keys[secs[secp].key_cnt]=Key(key_name,"");
 							secs[secp].keys[secs[secp].key_cnt].rnd_sort=big_rand(time_rand)+1;
 							secs[secp].keys[secs[secp].key_cnt].rnd_file=big_rand(time_rand)%max_split_file+1;
 							secs[secp].rnd_file=max(secs[secp].rnd_file,secs[secp].keys[secs[secp].key_cnt].rnd_file);
@@ -1108,7 +1110,7 @@ void do_parsing(string file_path,string fld,string fln){
 	core_p=0; 
 	dtl_f=false;
 	//memset(&secs,0,sizeof(struct Section));
-	for(int i=0;i<=200;i++){
+	for(int i=0;i<=100;i++){
 		secs[i].key_cnt=0;
 		secs[i].name="";
 		secs[i].rnd_sort=0;
@@ -1117,7 +1119,7 @@ void do_parsing(string file_path,string fld,string fln){
 		secs[i].dont_load_f=-1;
 		//memset(&secs[i].keys,0,sizeof(struct Key));
 		//memset有bug
-		for(int j=0;j<=2000;j++){
+		for(int j=0;j<=300;j++){
 			secs[i].keys[j].name="";
 			secs[i].keys[j].type="";
 			secs[i].keys[j].data_type="";
@@ -1161,8 +1163,8 @@ void do_parsing(string file_path,string fld,string fln){
 	bool gt_f;
 	double endtime=(double)(end-start)/CLOCKS_PER_SEC;
 	double pr_endtime=(double)(pr_end-pr_start)/CLOCKS_PER_SEC;
-	printf("文件 %s 混淆完成\n花费 %.2lfms(预处理 %.2lf ms + 混淆 %.2lf ms).\n",file_path.c_str(),(endtime*1000+pr_endtime*1000),pr_endtime*1000,endtime*1000);
-	printf("统计:\n节:%d\n键:%d (空键:%d 注释键:%d)\n",section_cnt,key_cnt,empty_key_cnt,comment_key_cnt);
+	
+	clock_t o_st=clock();
 //  	fout.open(fld+"\\"+fln);
 	if(!split_file){
 		sort_input(1,fld,fln);
@@ -1187,6 +1189,10 @@ void do_parsing(string file_path,string fld,string fln){
 //		cmd_r2[i]=cmd_r_t[i];
 //	}
 //	system(cmd_r2);
+	clock_t o_en=clock();
+	double out_endtime=(double)(o_en-o_st)/CLOCKS_PER_SEC;
+	printf("文件 %s 混淆完成\n花费 %.2lfms(预处理 %.2lf ms + 混淆 %.2lf ms + 输出 %.2lf ms).\n",file_path.c_str(),(endtime*1000+pr_endtime*1000+out_endtime*1000),pr_endtime*1000,endtime*1000,out_endtime*1000);
+	printf("统计:\n节:%d\n键:%d (空键:%d 注释键:%d)\n",section_cnt,key_cnt,empty_key_cnt,comment_key_cnt);
 }
 
 int main() {
@@ -1204,6 +1210,7 @@ int main() {
 	string pth;
 //	pth="D:\\rwtest\\test\\ini";//D:\\桌面\\rwini-confused\\test
 	getline(cin,pth);
+	clock_t m_st=clock();
 	queue <string> pth_t;
 	
 //	for(int i=0;i<pth.size();i++){
@@ -1217,11 +1224,11 @@ int main() {
 	//puts("搜索后"); 
 	
 //	do_parsing("D:\\rwtest\\test\\ini\\test.ini","D:\\rwtest\\test\\ini\\","test.ini");
-	
+	clock_t m_en=clock();
 	system("PAUSE");
-	
+	double main_endtime=(double)(m_en-m_st)/CLOCKS_PER_SEC;
 	//printf("[Debug] 114514:%d 114.154:%.3lf \n",get_number(gt_f,"114514"),get_float(gt_f,"114.514"));
-	
+	printf("总用时 %.2lf ms\n",main_endtime*1000);
 	printf("混淆完成\nBy Tobby.\n");
 	
 	system("PAUSE");
