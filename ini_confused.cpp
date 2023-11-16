@@ -68,6 +68,7 @@ bool keep_empty_line;
 bool randomly_add_comments;
 bool ignore_error;
 bool split_file;
+bool disable_rnd_sec;
 
 const int MAXN_INT = 1ll*2<<31-1;
 const int max_split_file = 5;
@@ -786,7 +787,15 @@ void sort_input(int file_number,string fld,string fln){
 		printf("%d ",secs[i].rnd_sort);
 	}
 	printf("\n");*/
-	sort(secs+1,secs+secp+1);//随机排序节
+
+
+	if(disable_rnd_sec){
+		if(debug_level=="info") printf("[Log] Disable rand sort for sections.\n");
+	}else{
+		sort(secs+1,secs+secp+1);//随机排序节
+	}
+
+
 	/*printf("[debug]sorted_section: ");
 	for(int i=1;i<=secp;i++){
 		printf("%d ",secs[i].rnd_sort);
@@ -966,7 +975,8 @@ void in_it(){
 		//5.节之间换行数量
 		//6.乱加注释
 		//7.忽略冒号错误(用于屏蔽某些bug 建议开启)
-		//8.拆分文件(实验性功能)
+		//8.拆分文件(实验性功能 可能导致兼容性错误)
+		//9.不进行节之间的随机交换(用于屏蔽潜在的兼容性错误 建议开启)
 		string ct1,ct2;
 		ctr>>ct1;
 		if(ct1=="1"){
@@ -1083,15 +1093,31 @@ void in_it(){
 				printf("[Log] 读取设置 : 分割文件 split_file = false\n");
 			}
 		}
+		string ct9;
+		ctr>>ct9;
+		if(ct9=="0"){
+			printf("[Log] 读取设置 : 不交换节 disable_rnd_sec = false\n");	
+			disable_rnd_sec=false;
+		}else{
+			disable_rnd_sec=true;
+			if(ct9!="1"){
+				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
+				printf("[Error] 读取设置错误 : 不交换节 disable_rnd_sec\n");
+				Reset_Color();
+			}else{
+				printf("[Log] 读取设置 : 不交换节 disable_rnd_sec = true\n");
+			}
+		}
 		ctr.close();
 	}else{
 		keep_comments=false;
 		keep_empty_line=false;
 		space_before_colon=0;
 		space_after_colon=1;
+		disable_rnd_sec=true;
 		ofstream ctw;
 		ctw.open("set.txt");
-		ctw<<"0\n1\n0\n1\n1\n0\n1\n0\n";
+		ctw<<"0\n1\n0\n1\n1\n0\n1\n0\n1\n";
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED|FOREGROUND_GREEN);
 		printf("[Waring] 缺少设置文件: set.txt , 使用默认设置.\n");
 		Reset_Color();
